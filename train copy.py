@@ -11,6 +11,8 @@ from nets.attention_model import set_decode_type
 from utils.log_utils import log_values
 from utils import move_to
 
+from vpg
+
 
 def get_inner_model(model):
     return model.module if isinstance(model, DataParallel) else model
@@ -142,6 +144,15 @@ def train_batch(
     # Evaluate model, get costs and log probabilities
     cost, log_likelihood = model(x) ##likelihood/probability is POLICY distribution used to pick actions or paths and cost is a vector with tour times(this could be rewards). Check _compute_policy_entropy in vpg.py
 
+    eps = {
+        'padded_observations': x,
+        'padded_rewards': cost,
+        'lengths': 1,
+        'observations': x,
+        'rewards': cost,
+        'actions': 
+    }
+
     # Evaluate baseline, get baseline loss if any (only for critic)
     bl_val, bl_loss = baseline.eval(x, cost) if bl_val is None else (bl_val, 0)
 
@@ -160,3 +171,15 @@ def train_batch(
     if step % int(opts.log_step) == 0:
         log_values(cost, grad_norms, epoch, batch_id, step,
                    log_likelihood, reinforce_loss, bl_loss, tb_logger, opts)
+
+def train_garage(
+        model,
+        optimizer,
+        baseline,
+        epoch,
+        batch_id,
+        step,
+        batch,
+        tb_logger,
+        opts
+):
