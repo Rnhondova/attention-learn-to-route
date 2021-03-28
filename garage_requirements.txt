@@ -1,0 +1,16 @@
+akro
+click>=2.0
+cloudpickle
+cma==2.7.0
+dowel==0.0.3
+numpy>=1.14.5
+psutil
+python-dateutil
+ray
+scikit-image
+scipy
+setproctitle>=1.0
+tensorflow>=1.14
+tensorflow-probability>=0.11.0
+torch>=1.0.0,!=1.5.0
+torchvision>=0.2.1
