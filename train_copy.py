@@ -18,6 +18,7 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir) 
 
 from garage.torch.algos import VPG
+from garage.np import pad_tensor, pad_tensor_n
 
 def get_inner_model(model):
     return model.module if isinstance(model, DataParallel) else model
@@ -150,24 +151,34 @@ def train_batch(
     cost, log_likelihood = model(x) ##likelihood/probability is POLICY distribution used to pick actions or paths and cost is a vector with tour times(this could be rewards). Check _compute_policy_entropy in vpg.py
     
     #Check sizes
-    #for key in x:
-    #    print(key, '->', x[key].shape)
-    
-    #print(cost.shape)
+    print('---Checking data Sizes---')
+    for key_x in x:
+        print('Batch ID:', batch_id, '->', key_x, '->', x[key_x].shape)
 
+    print('Batch ID:',batch_id,'-> Cost ->',cost.shape)
+
+    #Synthetic construction of required Garage input
+    obs_garage =  x['loc'].clone().detach().cpu()
+    rewards_garage = cost.clone().detach().cpu().numpy()
+    #padded_rewards_garage = pad_tensor(rewards_garage, len(rewards_garage), mode='last')
+  
+    padded_rewards_garage = rewards_garage.reshape(rewards_garage.shape[0],1)
+
+    lens = [(obs_garage.shape[1]-1) for i in range(obs_garage.shape[0])]
+    
     eps_dict = {
-        'padded_observations': x,
-        'padded_rewards': cost,
-        'lengths': 1,
-        'observations': x,
-        'rewards': cost,
-        'actions': x
+        'padded_observations': obs_garage,
+        'padded_rewards': padded_rewards_garage,
+        'lengths': lens,
+        'observations': obs_garage,
+        'rewards': rewards_garage,
+        'actions': obs_garage
     }
 
     eps = SimpleNamespace(**eps_dict)
 
     env_spec_dict = {
-      'max_episode_length': 100
+      'max_episode_length': 20
     }
     env_spec = SimpleNamespace(**env_spec_dict)
 
@@ -180,9 +191,12 @@ def train_batch(
       vf_optimizer = optimizer
     )
     print('VPG run' + str(vpg._train_once(1, eps)))
+    
 
     # Evaluate baseline, get baseline loss if any (only for critic)
     bl_val, bl_loss = baseline.eval(x, cost) if bl_val is None else (bl_val, 0)
+
+    #print('VPG run loss: ' + str(vpg._compute_advantage(cost, lens, bl_val)))
 
     # Calculate loss
     reinforce_loss = ((cost - bl_val) * log_likelihood).mean()
@@ -199,5 +213,4 @@ def train_batch(
     if step % int(opts.log_step) == 0:
         log_values(cost, grad_norms, epoch, batch_id, step,
                    log_likelihood, reinforce_loss, bl_loss, tb_logger, opts)
-
 
